@@ -1,39 +1,24 @@
 import pandas as pd
 import sklearn as sk
+import numpy as np
 
 def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff):
 
 	x = [[]]
 	y = []
+	x = df.iloc[:, [1, 2, 3, 4, 5, 6, 9]].values
+	y = df.iloc[:, [0]].values
 
-	for i in range(len(df)):
-		claim = df.iloc[i]['claim']
-		num_rev = df.iloc[i]['num_rev']
-		avg_rat = df.iloc[i]['avg_rat']
-		actualdis = df.iloc[i]['actualdis']
-		dealdis = df.iloc[i]['dealdis']
-		timeRem = df.iloc[i]['timeRem']
-		num_type = df.iloc[i]['num_type']
-		day = df.iloc[i]['day']
-
-		x_val = [claim, num_rev, avg_rat, actualdis, dealdis, timeRem, num_type, day]
-		x.append(x_val)
-
-		if (claim <= int(c0_cutoff)):
-			y.append(0)
-		elif (claim <= int(c1_cutoff)):
-			y.append(1)
-		elif (claim <= int(c2_cutoff)):
-			y.append(2)
-		elif (claim <= int(c3_cutoff)):
-			y.append(3)
-		else:
-			y.append(4)
-
+	y[y <= c0_cutoff] = 0
+	y[y > c3_cutoff] = 4
+	y[y > c2_cutoff] = 3
+	y[y > c1_cutoff] = 2
+	y[y > c0_cutoff] = 1
+	
 	return x, y
 
 if __name__ == "__main__":
 	data_dir = '../data/WithoutReviews/'
 	df = pd.read_hdf(data_dir + 'No_normalized_data.h5')
 	x, y = x_value(df, 20, 40, 60, 80)
-	print(len(x), len(y))
+	print(len(y), np.count_nonzero(y == 1), np.count_nonzero(y == 2), np.count_nonzero(y == 3), np.count_nonzero(y == 4))
