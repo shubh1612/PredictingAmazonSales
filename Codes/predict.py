@@ -1,5 +1,9 @@
 import pandas as pd
-import sklearn as sk
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from sklearn import svm
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 
 def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff):
@@ -50,8 +54,9 @@ def equalSplit(x, y, ratio):
 	x4 = x[index]
 	y4 = y[index]
 
-	y = np.vstack((y0, y1, y2, y3, y4))
 	x = np.vstack((x0, x1, x2, x3, x4))
+	y = np.vstack((y0, y1, y2, y3, y4))
+	y = y.ravel()
 
 	return x, y
 
@@ -60,6 +65,21 @@ if __name__ == "__main__":
 	ratio = 6
 	data_dir = '../data/WithoutReviews/'
 	df = pd.read_hdf(data_dir + 'No_normalized_data.h5')
+
+	print('x and y created')
 	x, y = x_value(df, 20, 40, 60, 80)
+	print('x and y equally splitted')
 	x, y = equalSplit(x, y, ratio)
-	print(len(x), len(y))
+
+	print('Train and test split of x and y')
+	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=42)
+
+	print('Training started')
+	clf = RandomForestClassifier()
+	clf.fit(x_train, y_train)
+
+	print('Testing Started')
+	y_pred = clf.predict(x_train)
+	print('Train Accuracy - ', accuracy_score(y_train, y_pred))
+	y_pred = clf.predict(x_test)
+	print('Test Accuracy - ', accuracy_score(y_test, y_pred))
