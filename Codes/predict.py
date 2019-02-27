@@ -29,34 +29,44 @@ def equalSplit(x, y, ratio):
 	lenY4 = np.count_nonzero(y == 4)
 	lenY0 = len(y) - lenY1 - lenY2 - lenY3 - lenY4
 
-	y0 = y[y == 0]
+	y0 = y[np.where(y == 0), :][0]
+	x0 = x[np.where(y == 0), :][0]
 	index = np.random.choice(y0.shape[0], min(ratio*lenY4, lenY0), replace = False)
-	x0 = x[index]
-	y0 = y[index]
+	x0 = x0[index]
+	y0 = y0[index]
 
-	y1 = y[y == 1]
+	y1 = y[np.where(y == 1), :][0]
+	x1 = x[np.where(y == 1), :][0]
 	index = np.random.choice(y1.shape[0], min(ratio*lenY4, lenY1), replace = False)
-	x1 = x[index]
-	y1 = y[index]
+	x1 = x1[index]
+	y1 = y1[index]
 	
-	y2 = y[y == 2]
+	y2 = y[np.where(y == 2), :][0]
+	x2 = x[np.where(y == 2), :][0]
 	index = np.random.choice(y2.shape[0], min(ratio*lenY4, lenY2), replace = False)
-	x2 = x[index]
-	y2 = y[index]
+	x2 = x2[index]
+	y2 = y2[index]
 	
-	y3 = y[y == 3]
+	y3 = y[np.where(y == 3), :][0]
+	x3 = x[np.where(y == 3), :][0]
 	index = np.random.choice(y3.shape[0], min(ratio*lenY4, lenY3), replace = False)
-	x3 = x[index]
-	y3 = y[index]
+	x3 = x3[index]
+	y3 = y3[index]
 
-	y4 = y[y == 4]
+	y4 = y[np.where(y == 4), :][0]
+	x4 = x[np.where(y == 4), :][0]
 	index = np.random.choice(y4.shape[0], min(ratio*lenY4, lenY4), replace = False)
-	x4 = x[index]
-	y4 = y[index]
+	x4 = x4[index]
+	y4 = y4[index]
 
-	x = np.vstack((x0, x1, x2, x3, x4))
-	y = np.vstack((y0, y1, y2, y3, y4))
-	y = y.ravel()
+	x = np.vstack((x0, x1))
+	x = np.vstack((x, x2))
+	x = np.vstack((x, x3))
+	x = np.vstack((x, x4))
+	y = np.vstack((y0, y1))
+	y = np.vstack((y, y2))
+	y = np.vstack((y, y3))
+	y = np.vstack((y, y4))
 
 	return x, y
 
@@ -75,7 +85,7 @@ if __name__ == "__main__":
 	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=42)
 
 	print('Training started')
-	clf = RandomForestClassifier()
+	clf = MLPClassifier()
 	clf.fit(x_train, y_train)
 
 	print('Testing Started')
