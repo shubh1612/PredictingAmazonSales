@@ -4,13 +4,17 @@ from sklearn.metrics import accuracy_score
 from sklearn import svm
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
+from keras.models import Sequential
+from keras.layers import Dense
 import numpy as np
 
 def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff):
 
 	x = [[]]
 	y = []
-	x = df.iloc[:, [1, 2, 3, 4, 5, 6, 9]].values
+	x = df.iloc[:, [1, 2, 3, 4, 6, \
+	 	10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 \
+	 	]].values
 	y = df.iloc[:, [0]].values
 
 	y[y <= c0_cutoff] = 0
@@ -70,26 +74,72 @@ def equalSplit(x, y, ratio):
 
 	return x, y
 
+
+def model(numFeatures):
+
+	model = Sequential()
+	model.add(Dense(12, input_dim = numFeatures, activation = 'relu'))
+	model.add(Dense(8, activation = 'relu'))
+	model.add(Dense(5, activation = 'softmax'))
+	
+
+def run_model(Loss, optimizer):
+
+	print(model.summary())
+	model.compile(loss = Loss, optimizer = optimizer, metrics = ['accuracy'])
+	earlystop = EarlyStopping(monitor = 'val_loss', patience = PAT)
+    check_pt = ModelCheckpoint(base_dir + 'model_.h5', save_best_only=True)
+    callbacks_list = [earlystop, check_pt]
+
+    trained_model = model.fit(X_train, [Y_train], epochs = EPOCHS, batch_size = BATCH_SIZE, shuffle = True, \
+    							validation_data = [X_val, [Y_val]], callbacks = callbacks_list)
+            
+    return trained_model, model
+
+
+def model_history(trained_model):
+
+	fig, axs = plt.subplots(1,2,figsize=(15,5))
+
+	axs[0].plot(trained_model.history['loss'])
+	axs[0].plot(trained_model.history['val_loss'])
+	axs[0].set_title('Model Loss')
+	axs[0].set_ylabel('Loss')
+	axs[0].set_xlabel('Epoch')
+	axs[0].legend(['Train', 'Validation'], loc='upper right')
+
+	axs[1].plot(trained_model.history['acc'])
+	axs[1].plot(trained_model.history['val_acc'])
+	axs[1].set_title('Model Accuracy')
+	axs[1].set_ylabel('Accuracy')
+	axs[1].set_xlabel('Epoch')
+	axs[1].legend(['Train', 'Validation'], loc='upper right')
+	plt.show()
+
+
 if __name__ == "__main__":
 	
 	ratio = 6
 	data_dir = '../data/WithoutReviews/'
 	df = pd.read_hdf(data_dir + 'No_normalized_data.h5')
 
-	print('x and y created')
 	x, y = x_value(df, 20, 40, 60, 80)
-	print('x and y equally splitted')
+	print('x and y created')
 	x, y = equalSplit(x, y, ratio)
+	print('x and y equally splitted')
 
-	print('Train and test split of x and y')
 	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=42)
+	print('Train and test split of x and y\n')
 
-	print('Training started')
-	clf = MLPClassifier()
-	clf.fit(x_train, y_train)
+	# print('Training started')
+	# clf = MLPClassifier()
+	# clf.fit(x_train, y_train)
 
-	print('Testing Started')
-	y_pred = clf.predict(x_train)
-	print('Train Accuracy - ', accuracy_score(y_train, y_pred))
-	y_pred = clf.predict(x_test)
-	print('Test Accuracy - ', accuracy_score(y_test, y_pred))
+	# print('Testing Started')
+	# y_pred = clf.predict(x_train)
+	# print('Train Accuracy - ', accuracy_score(y_train, y_pred))
+	# y_pred = clf.predict(x_test)
+	# print('Test Accuracy - ', accuracy_score(y_test, y_pred))
+	# print(len(x_train), len(x_test))
+	model = load_model(base_dir + 'model_.h5')
+	Y_pred = model.predict(X_test)
