@@ -1,19 +1,32 @@
+import time
+import numpy as np
 import pandas as pd
+
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from sklearn import svm
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
+
+import tensorflow as tf
+
 from keras.models import Sequential
 from keras.layers import Dense
-import numpy as np
+from keras.models import Model, load_model
+from keras.layers import Input, CuDNNLSTM, Activation, Lambda, Dense, LeakyReLU, Conv1D,GlobalAveragePooling1D
+from keras.layers import Dropout, Bidirectional,Concatenate, BatchNormalization, Flatten
+from keras import backend as K, regularizers
+from keras import optimizers, regularizers, initializers
+from keras.callbacks import EarlyStopping, TensorBoard
+from keras.constraints import maxnorm
+from keras.regularizers import l2
 
 def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff):
 
 	x = [[]]
 	y = []
-	x = df.iloc[:, [1, 2, 3, 4, 6, \
-	 	10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 \
+	x = df.iloc[:, [1, 2, 3, 4, 5, 6, 9\
+	 	# 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 \
 	 	]].values
 	y = df.iloc[:, [0]].values
 
@@ -75,25 +88,51 @@ def equalSplit(x, y, ratio):
 	return x, y
 
 
-def model(numFeatures):
+def StandardModel(numFeatures, Loss, optimizer):
 
 	model = Sequential()
 	model.add(Dense(12, input_dim = numFeatures, activation = 'relu'))
 	model.add(Dense(8, activation = 'relu'))
 	model.add(Dense(5, activation = 'softmax'))
-	
+	model.compile(loss = Loss, optimizer = optimizer, metrics = ['accuracy'])
+	# model.fit(X, Y, epochs=150, batch_size=10,  verbose=2)
+	# predictions = model.predict(X)
 
-def run_model(Loss, optimizer):
+def define_model():
+
+	input = Input(shape = INPUT_SHAPE_1, dtype = 'float32', name = 'features')
+
+	x = Dense(75, kernel_regularizer = regularizers.l2(1e-3) ,name = 'Fully_Connected_Layer_1')(input)
+	x = BatchNormalization()(x)
+	x = LeakyReLU(alpha=0.01)(x)
+	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_1')(x)
+
+	x = Dense(50, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_2')(x)
+	x = BatchNormalization()(x)
+	x = LeakyReLU(alpha=0.01)(x)
+	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_2')(x)
+
+	x = Dense(30, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_3')(x)
+	x = BatchNormalization()(x)
+	x = LeakyReLU(alpha=0.01)(x)
+	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_3')(x)
+
+	output = Dense(1, activation = 'sigmoid', name = 'Fully_Connected_Layer_4')(x)
+
+	model = Model(inputs = [input], outputs = [output], name = 'my_model')
+
+	return model
+
+def run_model(X_train, X_val, Y_train, Y_val, model):
 
 	print(model.summary())
-	model.compile(loss = Loss, optimizer = optimizer, metrics = ['accuracy'])
 	earlystop = EarlyStopping(monitor = 'val_loss', patience = PAT)
     check_pt = ModelCheckpoint(base_dir + 'model_.h5', save_best_only=True)
     callbacks_list = [earlystop, check_pt]
 
     trained_model = model.fit(X_train, [Y_train], epochs = EPOCHS, batch_size = BATCH_SIZE, shuffle = True, \
     							validation_data = [X_val, [Y_val]], callbacks = callbacks_list)
-            
+
     return trained_model, model
 
 
@@ -141,5 +180,15 @@ if __name__ == "__main__":
 	# y_pred = clf.predict(x_test)
 	# print('Test Accuracy - ', accuracy_score(y_test, y_pred))
 	# print(len(x_train), len(x_test))
-	model = load_model(base_dir + 'model_.h5')
+
+	INPUT_SHAPE_1 = (43,)
+	EPOCHS = 20
+	BATCH_SIZE = 256
+	DROPOUT = 0.15
+	PAT = 1
+
+	K.clear_session()
+	model = define_model()
+	trained_model, model = run_model(X_train, X_val, Y_train, Y_val, model)
+	model_history(trained_model)
 	Y_pred = model.predict(X_test)
