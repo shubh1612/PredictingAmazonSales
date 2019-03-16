@@ -1,6 +1,7 @@
 import time
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -17,7 +18,7 @@ from keras.layers import Input, CuDNNLSTM, Activation, Lambda, Dense, LeakyReLU,
 from keras.layers import Dropout, Bidirectional,Concatenate, BatchNormalization, Flatten
 from keras import backend as K, regularizers
 from keras import optimizers, regularizers, initializers
-from keras.callbacks import EarlyStopping, TensorBoard
+from keras.callbacks import EarlyStopping, TensorBoard, ModelCheckpoint
 from keras.constraints import maxnorm
 from keras.regularizers import l2
 
@@ -126,15 +127,15 @@ def define_model():
 def run_model(X_train, X_val, Y_train, Y_val, model):
 
 	print(model.summary())
+	model.compile(loss='binary_crossentropy', optimizer = optimizers.Adam(), metrics=['accuracy'])
 	earlystop = EarlyStopping(monitor = 'val_loss', patience = PAT)
-    check_pt = ModelCheckpoint(base_dir + 'model_.h5', save_best_only=True)
-    callbacks_list = [earlystop, check_pt]
+	check_pt = ModelCheckpoint(data_dir + 'model_.h5', save_best_only=True)
+	callbacks_list = [earlystop, check_pt]
 
-    trained_model = model.fit(X_train, [Y_train], epochs = EPOCHS, batch_size = BATCH_SIZE, shuffle = True, \
-    							validation_data = [X_val, [Y_val]], callbacks = callbacks_list)
+	trained_model = model.fit(X_train, [Y_train], epochs = EPOCHS, batch_size = BATCH_SIZE, shuffle = True, \
+								validation_data = [X_val, [Y_val]], callbacks = callbacks_list)
 
-    return trained_model, model
-
+	return trained_model, model
 
 def model_history(trained_model):
 
@@ -159,7 +160,7 @@ def model_history(trained_model):
 if __name__ == "__main__":
 	
 	ratio = 6
-	data_dir = '../data/WithoutReviews/'
+	data_dir = '../data/temp/WithoutReviews/'
 	df = pd.read_hdf(data_dir + 'No_normalized_data.h5')
 
 	x, y = x_value(df, 20, 40, 60, 80)
@@ -167,8 +168,9 @@ if __name__ == "__main__":
 	x, y = equalSplit(x, y, ratio)
 	print('x and y equally splitted')
 
-	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=42)
-	print('Train and test split of x and y\n')
+	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.4, random_state=42)
+	x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=0.2, random_state=42)
+	print('Train, Validation and test split of x and y\n')
 
 	# print('Training started')
 	# clf = MLPClassifier()
@@ -181,14 +183,14 @@ if __name__ == "__main__":
 	# print('Test Accuracy - ', accuracy_score(y_test, y_pred))
 	# print(len(x_train), len(x_test))
 
-	INPUT_SHAPE_1 = (43,)
+	INPUT_SHAPE_1 = (7,)
 	EPOCHS = 20
 	BATCH_SIZE = 256
 	DROPOUT = 0.15
-	PAT = 1
+	PAT = 2
 
 	K.clear_session()
 	model = define_model()
-	trained_model, model = run_model(X_train, X_val, Y_train, Y_val, model)
+	trained_model, model = run_model(x_train, x_val, y_train, y_val, model)
 	model_history(trained_model)
-	Y_pred = model.predict(X_test)
+	Y_pred = model.predict(x_test)
