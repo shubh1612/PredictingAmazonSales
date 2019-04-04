@@ -45,6 +45,8 @@ from keras.regularizers import l2
 ratio = 6
 data_dir = 'drive/My Drive/'
 data_file = 'drive/My Drive/No_normalized_data.h5'
+num_prev_values = 10
+start = [30]
 
 df = pd.read_hdf(data_file)
 
@@ -53,38 +55,58 @@ df.head()
 df.columns
 df.shape
 
-# f1 = 'y ~ claim + num_rev + avg_rat + actualdis + ' + \
-#      'dealdis + timeRem + num_type + C(recordtime) + C(asin) - 1'
+def get_per_claim(df):
 
-# f2 = 'y ~ claim + num_rev + avg_rat + actualdis + ' + \
-#      'dealdis + timeRem + num_type + C(recordtime) + C(asin)'
+	claim = {}
 
-# f3 = 'y ~ claim + num_rev + avg_rat + actualdis + ' + \
-#      'dealdis + timeRem + num_type + C(recordtime)'
+	for index, row in df.head().iterrows():
 
-# f4 = 'y ~ claim*timeRem + claim*dealdis + timeRem*dealdis + timeRem*avg_rat + claim*avg_rat + ' + \
-#      'claim + num_rev + avg_rat + actualdis + ' + \
-#      'dealdis + timeRem + num_type + C(recordtime) + C(asin)'
+		deal_id = row['deal_id']
 
-# f_list = [f1, f2, f3, f4]
-# print(f_list)
+		if(deal_id in claim):
+			claim[deal_id].append(row[0])
+		else:
+			claim[deal_id] = [row[0]]
 
-def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff):
+	return claim
+
+def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff, num_prev_values, start, claim):
 
 	x = [[]]
 	y = []
-	x = df.iloc[:, [1, 2, 3, 4, 5, 6, 9\
+	x = df.iloc[:, [0, 1, 2, 3, 4, 5, 6, 9\
 	 	# 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 \
 	 	]].values
-	y = df.iloc[:, [0]].values
 
-	y[y <= c0_cutoff] = 0
-	y[y > c3_cutoff] = 4
-	y[y > c2_cutoff] = 3
-	y[y > c1_cutoff] = 2
-	y[y > c0_cutoff] = 1
+	y = df.iloc[:, [0]].values
 	
-	return x, y
+	actual_x = [[]]
+
+	for i in range(len(x)):
+		
+		asin = df[i]['asin']
+		perClaim = claim[asin]
+		idx = perClaim.index(x[i][0])
+		
+		for j in range(len(start)):
+		
+			l = []
+			if((idx - start[j] - num_prev_values + 1) < 0):
+				continue
+
+			l.append(x[i])
+			l.append(perClaim[(idx-start[j]-num_prev_values+1):(idx-start[j]+1)])
+			l.append(start[j])
+			actual_x.append(l)
+			actual_y.append(y[i])
+
+	actual_y[actual_y <= c0_cutoff] = 0
+	actual_y[actual_y > c3_cutoff] = 4
+	actual_y[actual_y > c2_cutoff] = 3
+	actual_y[actual_y > c1_cutoff] = 2
+	actual_y[actual_y > c0_cutoff] = 1
+	
+	return actual_x, actual_y
 
 def equalSplit(x, y, ratio):
 
@@ -149,15 +171,20 @@ def define_model():
 
 	input = Input(shape = INPUT_SHAPE_1, dtype = 'float32', name = 'features')
 
-	x = Dense(75, kernel_regularizer = regularizers.l2(1e-3) ,name = 'Fully_Connected_Layer_1')(input)
+	x = Dense(90, kernel_regularizer = regularizers.l2(1e-3) ,name = 'Fully_Connected_Layer_1')(input)
 	x = BatchNormalization()(x)
 	x = LeakyReLU(alpha=0.01)(x)
 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_1')(x)
 
-	x = Dense(50, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_2')(x)
+	x = Dense(70, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_2')(x)
 	x = BatchNormalization()(x)
 	x = LeakyReLU(alpha=0.01)(x)
 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_2')(x)
+
+	x = Dense(50, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_3')(x)
+	x = BatchNormalization()(x)
+	x = LeakyReLU(alpha=0.01)(x)
+	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_3')(x)
 
 	x = Dense(30, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_3')(x)
 	x = BatchNormalization()(x)
@@ -202,7 +229,10 @@ def model_history(trained_model):
 	axs[1].legend(['Train', 'Validation'], loc='upper right')
 	plt.show()
 
-x, y = x_value(df, 20, 40, 60, 80)
+if(__name__ == '__main__'):
+
+	claim = get_per_claim(df)
+	x, y = x_value(df, 20, 40, 60, 80, num_prev_values, start, claim)
 	print('x and y created')
 	x, y = equalSplit(x, y, ratio)
 	print('x and y equally splitted')
@@ -237,17 +267,3 @@ x, y = x_value(df, 20, 40, 60, 80)
 	y_pred = (model.predict(x_train)).argmax(axis=-1)
 	y_train = [np.where(r==1)[0][0] for r in y_train]
 	print(accuracy_score(y_train, y_pred))
-
-# i = 1
-
-# for f in f_list:
-  
-#   FE_ols = sm.ols(formula = f, data=df.loc[:50000]).fit()
-  
-#   with open(data_dir + str(i) + '_asin.txt' , 'w') as myfile:
-#     print(FE_ols.summary())
-#     myfile.write(str(FE_ols.summary()))
-    
-#   print("%d Done" % i)
-#   i += 1
-
