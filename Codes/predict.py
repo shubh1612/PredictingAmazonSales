@@ -45,8 +45,11 @@ from keras.regularizers import l2
 ratio = 6
 data_dir = 'drive/My Drive/'
 data_file = 'drive/My Drive/No_normalized_data.h5'
+
 num_prev_values = 10
-start = [30]
+start = [10, 30]
+# data_dir = 'drive/My Drive/btp/sem2_start/Prediction/'
+# data_file = 'drive/My Drive/btp/sem2_start/Prediction/No_normalized_data.h5'
 
 df = pd.read_hdf(data_file)
 
@@ -59,7 +62,7 @@ def get_per_claim(df):
 
 	claim = {}
 
-	for index, row in df.head().iterrows():
+	for index, row in df.iterrows():
 
 		deal_id = row['deal_id']
 
@@ -81,11 +84,13 @@ def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff, num_prev_values, sta
 	y = df.iloc[:, [0]].values
 	
 	actual_x = [[]]
+	actual_y = []
 
 	for i in range(len(x)):
-		
-		asin = df[i]['asin']
-		perClaim = claim[asin]
+
+		perClaim = []
+		asin = (df.iloc[[i]]['deal_id'].values)[0]
+		perClaim = claim.get(asin)
 		idx = perClaim.index(x[i][0])
 		
 		for j in range(len(start)):
@@ -94,12 +99,16 @@ def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff, num_prev_values, sta
 			if((idx - start[j] - num_prev_values + 1) < 0):
 				continue
 
-			l.append(x[i])
-			l.append(perClaim[(idx-start[j]-num_prev_values+1):(idx-start[j]+1)])
+			l = (perClaim[(idx-start[j]-num_prev_values+1):(idx-start[j]+1)])
+
+			for k in range(len(x[i]) - 1):
+				l.append(x[i][k])
+
 			l.append(start[j])
 			actual_x.append(l)
 			actual_y.append(y[i])
 
+	actual_y = np.asarray(actual_y)
 	actual_y[actual_y <= c0_cutoff] = 0
 	actual_y[actual_y > c3_cutoff] = 4
 	actual_y[actual_y > c2_cutoff] = 3
@@ -171,31 +180,66 @@ def define_model():
 
 	input = Input(shape = INPUT_SHAPE_1, dtype = 'float32', name = 'features')
 
-	x = Dense(90, kernel_regularizer = regularizers.l2(1e-3) ,name = 'Fully_Connected_Layer_1')(input)
+	x = Dense(200, kernel_regularizer = regularizers.l2(1e-3) ,name = 'Fully_Connected_Layer_1')(input)
 	x = BatchNormalization()(x)
 	x = LeakyReLU(alpha=0.01)(x)
 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_1')(x)
 
-	x = Dense(70, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_2')(x)
+	x = Dense(150, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_2')(x)
 	x = BatchNormalization()(x)
 	x = LeakyReLU(alpha=0.01)(x)
 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_2')(x)
 
-	x = Dense(50, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_3')(x)
+	x = Dense(90, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_3')(x)
 	x = BatchNormalization()(x)
 	x = LeakyReLU(alpha=0.01)(x)
 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_3')(x)
 
-	x = Dense(30, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_3')(x)
+	x = Dense(50, kernel_regularizer = regularizers.l2(1e-3), name = 'Fully_Connected_Layer_4')(x)
 	x = BatchNormalization()(x)
 	x = LeakyReLU(alpha=0.01)(x)
-	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_3')(x)
+	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_4')(x)
 
-	output = Dense(5, activation = 'softmax', name = 'Fully_Connected_Layer_4')(x)
+	output = Dense(5, activation = 'softmax', name = 'Fully_Connected_Layer_5')(x)
 
 	model = Model(inputs = [input], outputs = [output], name = 'my_model')
 
 	return model
+
+def define_model_2():
+
+  input = Input(shape = INPUT_SHAPE_1, dtype = 'float32', name = 'features')
+
+  x = Dense(1024 ,name = 'Fully_Connected_Layer_0')(input)
+  # 	x = BatchNormalization()(x)
+  x = LeakyReLU(alpha=0.01)(x)
+
+
+  x = Dense(512 ,name = 'Fully_Connected_Layer_1')(x)
+  # 	x = BatchNormalization()(x)
+  x = LeakyReLU(alpha=0.01)(x)
+  # 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_1')(x)
+
+  x = Dense(256, name = 'Fully_Connected_Layer_2')(x)
+  # 	x = BatchNormalization()(x)
+  x = LeakyReLU(alpha=0.01)(x)
+  # 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_2')(x)
+
+  x = Dense(128, name = 'Fully_Connected_Layer_3')(x)
+  # 	x = BatchNormalization()(x)
+  x = LeakyReLU(alpha=0.01)(x)
+  # 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_3')(x)
+
+  x = Dense(64, name = 'Fully_Connected_Layer_4')(x)
+  # 	x = BatchNormalization()(x)
+  x = LeakyReLU(alpha=0.01)(x)
+  # 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_4')(x)
+
+  output = Dense(5, activation = 'softmax', name = 'Fully_Connected_Layer_5')(x)
+
+  model = Model(inputs = [input], outputs = [output], name = 'my_model')
+
+  return model
 
 def run_model(X_train, X_val, Y_train, Y_val, model):
 
@@ -207,6 +251,19 @@ def run_model(X_train, X_val, Y_train, Y_val, model):
 
 	trained_model = model.fit(X_train, [Y_train], epochs = EPOCHS, batch_size = BATCH_SIZE, shuffle = True, \
 								validation_data = [X_val, [Y_val]], callbacks = callbacks_list)
+
+	return trained_model, model
+
+def run_model_2(X_train, X_val, Y_train, Y_val, model):
+
+	print(model.summary())
+	model.compile(loss='categorical_crossentropy', optimizer = optimizers.Adam(), metrics=['accuracy'])
+# 	earlystop = EarlyStopping(monitor = 'val_loss', patience = PAT)
+# 	check_pt = ModelCheckpoint(data_dir + 'model_.h5', save_best_only=True)
+# 	callbacks_list = [earlystop, check_pt]
+
+	trained_model = model.fit(X_train, [Y_train], epochs = EPOCHS, batch_size = BATCH_SIZE, shuffle = True, \
+								validation_data = [X_val, [Y_val]])
 
 	return trained_model, model
 
@@ -229,41 +286,76 @@ def model_history(trained_model):
 	axs[1].legend(['Train', 'Validation'], loc='upper right')
 	plt.show()
 
-if(__name__ == '__main__'):
+claim = get_per_claim(df)
+x, y = x_value(df, 20, 40, 60, 80, num_prev_values, start, claim)
+x = x[1:]
+x = np.asarray(x)
+print('x and y created')
+x, y = equalSplit(x, y, ratio)
+print('x and y equally splitted')
 
-	claim = get_per_claim(df)
-	x, y = x_value(df, 20, 40, 60, 80, num_prev_values, start, claim)
-	print('x and y created')
-	x, y = equalSplit(x, y, ratio)
-	print('x and y equally splitted')
+from sklearn import preprocessing
 
-	y = y.astype(int)
-	y = np.squeeze(np.eye(5)[y.reshape(-1)])
-	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.4, random_state=42)
-	x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=0.2, random_state=42)
-	print('Train, Validation and test split of x and y\n')
+X_scaled = preprocessing.normalize(x)
+y = y.astype(int)
+x_train, x_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.4, random_state=42)
+x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=0.2, random_state=42)
 
-	# print('Training started')
-	# clf = MLPClassifier()
-	# clf.fit(x_train, y_train)
+# print(np.count_nonzero(y_train == 4))
+# print(np.count_nonzero(y_train == 3))
+# print(np.count_nonzero(y_train == 2))
+# print(np.count_nonzero(y_train == 1))
+# print(np.count_nonzero(y_train == 0))
 
-	# print('Testing Started')
-	# y_pred = clf.predict(x_train)
-	# print('Train Accuracy - ', accuracy_score(y_train, y_pred))
-	# y_pred = clf.predict(x_test)
-	# print('Test Accuracy - ', accuracy_score(y_test, y_pred))
-	# print(len(x_train), len(x_test))
+y_train = np.squeeze(np.eye(5)[y_train.reshape(-1)])
+print(len(X_scaled), len(y))
+y_val = np.squeeze(np.eye(5)[y_val.reshape(-1)])
+y_test = np.squeeze(np.eye(5)[y_test.reshape(-1)])
 
-	INPUT_SHAPE_1 = (7,)
-	EPOCHS = 50
-	BATCH_SIZE = 1024
-	DROPOUT = 0.15
-	PAT = 10
+# print('Training started')
+# clf = MLPClassifier()
+# clf.fit(x_train, y_train)
 
-	K.clear_session()
-	model = define_model()
-	trained_model, model = run_model(x_train, x_val, y_train, y_val, model)
-	model_history(trained_model)
-	y_pred = (model.predict(x_train)).argmax(axis=-1)
-	y_train = [np.where(r==1)[0][0] for r in y_train]
-	print(accuracy_score(y_train, y_pred))
+# print('Testing Started')
+# y_pred = clf.predict(x_train)
+# print('Train Accuracy - ', accuracy_score(y_train, y_pred))
+# y_pred = clf.predict(x_test)
+# print('Test Accuracy - ', accuracy_score(y_test, y_pred))
+# print(len(x_train), len(x_test))
+
+INPUT_SHAPE_1 = (8 + num_prev_values, )
+EPOCHS = 100
+BATCH_SIZE = 512
+DROPOUT = 0.15
+PAT = 10
+
+K.clear_session()
+model = define_model()
+trained_model, model = run_model(x_train, x_val, y_train, y_val, model)
+model_history(trained_model)
+
+# y_pred = (model.predict(x_train)).argmax(axis=-1)
+# y_train = [np.where(r==1)[0][0] for r in y_train]
+# print(accuracy_score(y_train, y_pred))
+
+y_pred = (model.predict(x_test)).argmax(axis=-1)
+y_test = [np.where(r==1)[0][0] for r in y_test]
+print(accuracy_score(y_test, y_pred))
+
+from sklearn.metrics import classification_report
+print(classification_report(y_test, y_pred))
+
+y_pred = (model.predict(x_train)).argmax(axis=-1)
+y_train = [np.where(r==1)[0][0] for r in y_train]
+print(accuracy_score(y_pred, y_train))
+
+from sklearn.metrics import classification_report
+print(classification_report(y_train, y_pred))
+
+y_pred = (model.predict(x_val)).argmax(axis=-1)
+y_val = [np.where(r==1)[0][0] for r in y_val]
+print(accuracy_score(y_val, y_pred))
+
+from sklearn.metrics import classification_report
+print(classification_report(y_val, y_pred))
+
