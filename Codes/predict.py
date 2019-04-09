@@ -27,6 +27,7 @@ from sklearn.metrics import accuracy_score
 from sklearn import svm
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn import preprocessing
 
 import tensorflow as tf
 
@@ -44,10 +45,12 @@ from keras.regularizers import l2
 
 ratio = 6
 data_dir = 'drive/My Drive/'
-data_file = 'drive/My Drive/No_normalized_data.h5'
+data_file = 'drive/My Drive/5minNo_normalized_data.h5'
 
-num_prev_values = 10
-start = [10, 30]
+num_prev_values = 12
+start = [30]
+num_classes = 10
+cutoff = []
 # data_dir = 'drive/My Drive/btp/sem2_start/Prediction/'
 # data_file = 'drive/My Drive/btp/sem2_start/Prediction/No_normalized_data.h5'
 
@@ -73,7 +76,7 @@ def get_per_claim(df):
 
 	return claim
 
-def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff, num_prev_values, start, claim):
+def x_value(df, num_prev_values, start, claim):
 
 	x = [[]]
 	y = []
@@ -109,62 +112,72 @@ def x_value(df, c0_cutoff, c1_cutoff, c2_cutoff, c3_cutoff, num_prev_values, sta
 			actual_y.append(y[i])
 
 	actual_y = np.asarray(actual_y)
-	actual_y[actual_y <= c0_cutoff] = 0
-	actual_y[actual_y > c3_cutoff] = 4
-	actual_y[actual_y > c2_cutoff] = 3
-	actual_y[actual_y > c1_cutoff] = 2
-	actual_y[actual_y > c0_cutoff] = 1
 	
 	return actual_x, actual_y
 
-def equalSplit(x, y, ratio):
+def y_value(y, num_classes, cutoff):
 
-	lenY1 = np.count_nonzero(y == 1)
-	lenY2 = np.count_nonzero(y == 2)
-	lenY3 = np.count_nonzero(y == 3)
-	lenY4 = np.count_nonzero(y == 4)
-	lenY0 = len(y) - lenY1 - lenY2 - lenY3 - lenY4
+  if(len(cutoff) == 0):
+    
+    cutoff_pt = 100/num_classes
+    num = int(num_classes/cutoff_pt)
+    for i in range(0, num_classes):
+      y[(y >= i*cutoff_pt) & (y < (i+1)*cutoff_pt)] = i    
+    y[y == 100] = num_classes - 1
 
-	y0 = y[np.where(y == 0), :][0]
-	x0 = x[np.where(y == 0), :][0]
-	index = np.random.choice(y0.shape[0], min(ratio*lenY4, lenY0), replace = False)
-	x0 = x0[index]
-	y0 = y0[index]
+  else:
+    
+    y[y <= cutoff[0]] = 0
+    for i in range(1, num_classes):
+      y[(y > cutoff[i-1]) & (y <= cutoff[i])] = i
 
-	y1 = y[np.where(y == 1), :][0]
-	x1 = x[np.where(y == 1), :][0]
-	index = np.random.choice(y1.shape[0], min(ratio*lenY4, lenY1), replace = False)
-	x1 = x1[index]
-	y1 = y1[index]
-	
-	y2 = y[np.where(y == 2), :][0]
-	x2 = x[np.where(y == 2), :][0]
-	index = np.random.choice(y2.shape[0], min(ratio*lenY4, lenY2), replace = False)
-	x2 = x2[index]
-	y2 = y2[index]
-	
-	y3 = y[np.where(y == 3), :][0]
-	x3 = x[np.where(y == 3), :][0]
-	index = np.random.choice(y3.shape[0], min(ratio*lenY4, lenY3), replace = False)
-	x3 = x3[index]
-	y3 = y3[index]
+  return y
 
-	y4 = y[np.where(y == 4), :][0]
-	x4 = x[np.where(y == 4), :][0]
-	index = np.random.choice(y4.shape[0], min(ratio*lenY4, lenY4), replace = False)
-	x4 = x4[index]
-	y4 = y4[index]
+def equalSplit(x, y, ratio, num_classes):
 
-	x = np.vstack((x0, x1))
-	x = np.vstack((x, x2))
-	x = np.vstack((x, x3))
-	x = np.vstack((x, x4))
-	y = np.vstack((y0, y1))
-	y = np.vstack((y, y2))
-	y = np.vstack((y, y3))
-	y = np.vstack((y, y4))
+  leny = []
+  mini = np.count_nonzero(y==0)
 
-	return x, y
+  for i in range(num_classes):
+    val = np.count_nonzero(y==i)
+    leny.append(val)
+    if(val != 0 and mini > val):
+      mini = val
+
+  y0 = y[np.where(y == 0), :][0]
+  x0 = x[np.where(y == 0), :][0]
+  index = np.random.choice(y0.shape[0], min(ratio*mini, leny[0]), replace = False)
+  x0 = x0[index]
+  y0 = y0[index]
+
+  y1 = y[np.where(y == 1), :][0]
+  x1 = x[np.where(y == 1), :][0]
+  index = np.random.choice(y1.shape[0], min(ratio*mini, leny[1]), replace = False)
+  x1 = x1[index]
+  y1 = y1[index]
+
+  actual_x = np.vstack((x0, x1))
+  actual_y = np.vstack((y0, y1))
+
+  for i in range(2, num_classes):
+
+    y_prime = []
+    x_prime = []
+    y_prime = y[np.where(y == i), :][0]
+    x_prime = x[np.where(y == i), :][0]
+
+    if(leny[i] == 0):
+      print(i)
+      continue
+
+    index = np.random.choice(y_prime.shape[0], min(ratio*mini, leny[i]), replace = False)
+
+    x_prime = x_prime[index]
+    y_prime = y_prime[index]
+    actual_x = np.vstack((actual_x, x_prime))
+    actual_y = np.vstack((actual_y, y_prime))
+
+  return x, y
 
 def StandardModel(numFeatures, Loss, optimizer):
 
@@ -176,7 +189,7 @@ def StandardModel(numFeatures, Loss, optimizer):
 	# model.fit(X, Y, epochs=150, batch_size=10,  verbose=2)
 	# predictions = model.predict(X)
 
-def define_model():
+def define_model(num_classes):
 
 	input = Input(shape = INPUT_SHAPE_1, dtype = 'float32', name = 'features')
 
@@ -200,13 +213,13 @@ def define_model():
 	x = LeakyReLU(alpha=0.01)(x)
 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_4')(x)
 
-	output = Dense(5, activation = 'softmax', name = 'Fully_Connected_Layer_5')(x)
+	output = Dense(num_classes, activation = 'softmax', name = 'Fully_Connected_Layer_5')(x)
 
 	model = Model(inputs = [input], outputs = [output], name = 'my_model')
 
 	return model
 
-def define_model_2():
+def define_model_2(num_classes):
 
   input = Input(shape = INPUT_SHAPE_1, dtype = 'float32', name = 'features')
 
@@ -235,7 +248,7 @@ def define_model_2():
   x = LeakyReLU(alpha=0.01)(x)
   # 	x = Dropout(DROPOUT,  name = 'Dropout_Regularization_4')(x)
 
-  output = Dense(5, activation = 'softmax', name = 'Fully_Connected_Layer_5')(x)
+  output = Dense(num_classes, activation = 'softmax', name = 'Fully_Connected_Layer_5')(x)
 
   model = Model(inputs = [input], outputs = [output], name = 'my_model')
 
@@ -269,34 +282,40 @@ def run_model_2(X_train, X_val, Y_train, Y_val, model):
 
 def model_history(trained_model):
 
-	fig, axs = plt.subplots(1,2,figsize=(15,5))
+  fig, axs = plt.subplots(1,2,figsize=(15,5))
 
-	axs[0].plot(trained_model.history['loss'])
-	axs[0].plot(trained_model.history['val_loss'])
-	axs[0].set_title('Model Loss')
-	axs[0].set_ylabel('Loss')
-	axs[0].set_xlabel('Epoch')
-	axs[0].legend(['Train', 'Validation'], loc='upper right')
+  axs[0].plot(trained_model.history['loss'])
+  axs[0].plot(trained_model.history['val_loss'])
+  axs[0].set_title('Model Loss')
+  axs[0].set_ylabel('Loss')
+  axs[0].set_xlabel('Epoch')
+  axs[0].legend(['Train', 'Validation'], loc='upper right')
 
-	axs[1].plot(trained_model.history['acc'])
-	axs[1].plot(trained_model.history['val_acc'])
-	axs[1].set_title('Model Accuracy')
-	axs[1].set_ylabel('Accuracy')
-	axs[1].set_xlabel('Epoch')
-	axs[1].legend(['Train', 'Validation'], loc='upper right')
-	plt.show()
+  axs[1].plot(trained_model.history['acc'])
+  axs[1].plot(trained_model.history['val_acc'])
+  axs[1].set_title('Model Accuracy')
+  axs[1].set_ylabel('Accuracy')
+  axs[1].set_xlabel('Epoch')
+  axs[1].legend(['Train', 'Validation'], loc='upper right')
+  plt.show()
 
 claim = get_per_claim(df)
-x, y = x_value(df, 20, 40, 60, 80, num_prev_values, start, claim)
+x, y = x_value(df, num_prev_values, start, claim)
+store_y = y
 x = x[1:]
 x = np.asarray(x)
+dfx = pd.DataFrame(x)
+dfx.to_hdf(data_dir + '12_30_x_values.h5', key = 'dfx', mode = 'w')
+
+print(len(x), len(y))
+y = y_value(y, num_classes, cutoff)
+dfy = pd.DataFrame(y)
+dfy.to_hdf(data_dir + '12_30_y.h5', key = 'dfy', mode = 'w')
 print('x and y created')
-x, y = equalSplit(x, y, ratio)
+x, y = equalSplit(x, y, ratio, num_classes)
 print('x and y equally splitted')
 
-from sklearn import preprocessing
-
-X_scaled = preprocessing.normalize(x)
+X_scaled = preprocessing.scale(x)
 y = y.astype(int)
 x_train, x_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.4, random_state=42)
 x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=0.2, random_state=42)
@@ -307,10 +326,10 @@ x_val, x_test, y_val, y_test = train_test_split(x_test, y_test, test_size=0.2, r
 # print(np.count_nonzero(y_train == 1))
 # print(np.count_nonzero(y_train == 0))
 
-y_train = np.squeeze(np.eye(5)[y_train.reshape(-1)])
+y_train = np.squeeze(np.eye(num_classes)[y_train.reshape(-1)])
 print(len(X_scaled), len(y))
-y_val = np.squeeze(np.eye(5)[y_val.reshape(-1)])
-y_test = np.squeeze(np.eye(5)[y_test.reshape(-1)])
+y_val = np.squeeze(np.eye(num_classes)[y_val.reshape(-1)])
+y_test = np.squeeze(np.eye(num_classes)[y_test.reshape(-1)])
 
 # print('Training started')
 # clf = MLPClassifier()
@@ -324,19 +343,15 @@ y_test = np.squeeze(np.eye(5)[y_test.reshape(-1)])
 # print(len(x_train), len(x_test))
 
 INPUT_SHAPE_1 = (8 + num_prev_values, )
-EPOCHS = 100
+EPOCHS = 1
 BATCH_SIZE = 512
 DROPOUT = 0.15
 PAT = 10
 
 K.clear_session()
-model = define_model()
-trained_model, model = run_model(x_train, x_val, y_train, y_val, model)
+model = define_model_2(num_classes)
+trained_model, model = run_model_2(x_train, x_val, y_train, y_val, model)
 model_history(trained_model)
-
-# y_pred = (model.predict(x_train)).argmax(axis=-1)
-# y_train = [np.where(r==1)[0][0] for r in y_train]
-# print(accuracy_score(y_train, y_pred))
 
 y_pred = (model.predict(x_test)).argmax(axis=-1)
 y_test = [np.where(r==1)[0][0] for r in y_test]
@@ -359,3 +374,6 @@ print(accuracy_score(y_val, y_pred))
 from sklearn.metrics import classification_report
 print(classification_report(y_val, y_pred))
 
+unique, counts = np.unique(y_train, return_counts=True)
+
+print(unique, counts)
